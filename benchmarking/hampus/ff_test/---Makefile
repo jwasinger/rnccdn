@@ -1,0 +1,18 @@
+CFLAGS = -pedantic
+COPT = -O3 -funroll-loops
+GCC = gcc
+
+
+all: ff_test ff_benchmark
+
+ff_test: ff_2_163.h ff_2_163.o ff_test.c
+	$(GCC) $(CFLAGS) -o $@ $@.c ff_2_163.o
+
+ff_benchmark: ff_2_163.h ff_2_163.o ff_benchmark.c
+	$(GCC) $(CFLAGS) -o $@ $@.c ff_2_163.o
+
+ff_2_163.o: ff_2_163.h ff_2_163.c
+	$(GCC) $(CFLAGS) $(COPT) -c ff_2_163.c
+
+clear:
+	rm ff_test ff_benchmark ff_2_163.o
