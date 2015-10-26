@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #define CELLS 1000
-#define ITERATIONS 100000
+#define ITERATIONS 2500000
 
 int main () {
   int i;
@@ -41,7 +41,7 @@ int main () {
   for (i=0; i<CELLS; i++)
     ff_rand(cell[i]);
 
-  for (op=0; op < 2; op++) {
+  for (op=0; op<2; op++) {
     /* Set timer */
     //ftime (&tm);
     //seconds = tm.time;
@@ -55,7 +55,6 @@ int main () {
       for (i=0; i<ITERATIONS*coeff[op]; i++)
 	ff_mul_rlcomb( cell[i%CELLS], cell[(i+CELLS/2)%CELLS], res );
       break;
-
     case 1:
       /* Division */
       for (i=0; i<ITERATIONS*coeff[op]; i++)
@@ -69,8 +68,8 @@ int main () {
     //milliseconds = seconds*1000+(tm.millitm -milliseconds);
 	gettimeofday(&end, NULL);
     switch(op) {
-    case 0:      
-	printf("Product:   ");
+    case 0:
+      printf("Product:   ");
       break;
     case 1:
       printf("Division:     ");
@@ -79,8 +78,7 @@ int main () {
     //printf("%.3f seconds elapsed -\t %2.3f microseconds average\n",((double)milliseconds/1000), ((double)milliseconds*1000)/(ITERATIONS*coeff[op]));
 printf("%ld\n", ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)));
   }
-
-return 0;
+  return 0;
 }
 
 
