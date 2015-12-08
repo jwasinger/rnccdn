@@ -136,36 +136,43 @@ int main(int argc, char **argv){
     uint16_t *x3 = malloc(DATA_LENGTH/3 * sizeof *x3);
     
     for(i = 0 ; i < DATA_LENGTH/3 ; i++){
-        x2[i] = (c2 * t0[i] + c0 * t1[i])/c4;
-        x1[i] = (t0[i] + c1 * x2[i])/c0;
-        x3[i] = (output1[i] + coef[0][1] * x1[i] + coef[0][2] * x2[i])/coef[0][0];
-        //x2[i] = (GF16mul(c2, t0[i]) ^ GF16mul(c0, t1[i]))/c4;
-        //x1[i] = (t0[i] ^ GF16mul(c1, x2[i]))/c0;
-        //x3[i] = (output1[i] ^ GF16mul(coef[0][1], x1[i]) ^ GF16mul(coef[0][2], x2[i]))/coef[0][0];
+        //x2[i] = (c2 * t0[i] + c0 * t1[i])/c4;
+        //x1[i] = (t0[i] + c1 * x2[i])/c0;
+        //x3[i] = (output1[i] + coef[0][1] * x1[i] + coef[0][2] * x2[i])/coef[0][0];
+        x2[i] = GF16div((GF16mul(c2, t0[i]) ^ GF16mul(c0, t1[i])),c4);
+        x1[i] = GF16div((t0[i] ^ GF16mul(c1, x2[i])),c0);
+        x3[i] = GF16div((output1[i] ^ GF16mul(coef[0][1], x1[i]) ^ GF16mul(coef[0][2], x2[i])),coef[0][0]);
     }
     
     for(i = 0, t = 0 ; i < DATA_LENGTH ; i +=3, t++){
-        final[i] = x1[t];
-        final[i+1] = x2[t];
-        final[i+2] = x3[t];
+        //final[i] = x1[t];
+        //final[i+1] = x2[t];
+        //final[i+2] = x3[t];
+        final[i] = x3[t];
+        final[i+1] = x1[t];
+        final[i+2] = x2[t];
     }
     
+    printf("Checking...\n");
     
-    printf("after\n");
     //check
     for( i = 0 ; i < DATA_LENGTH ; i++){
         if(input[i] != final[i]){
-            printf("Not equal at %d or %d or %d\n", i, i+1, i+2);
+            printf("Not equal at %d\n", i);
             printf("%d and %d\n", input[i], final[i]);
-            printf("%d and %d\n", input[i+1], final[i+1]);
-            printf("%d and %d\n", input[i+2], final[i+2]);
+            //printf("%d and %d\n", input[i+1], final[i+1]);
+            //printf("%d and %d\n", input[i+2], final[i+2]);
             break;
         }
     }
+    
+    printf("Done\n");
     
     
     
     return 0;
 }
+
+
 
 
