@@ -122,8 +122,17 @@ decodeFile(struct arguments facts){
         fp = fopen(facts.chunks[0], "r");
         
         if(fp != NULL){
-            
+            if (fseek(fp, 0L, SEEK_END) == 0) {
+                //Get the size of the file. Gets in single bytes
+                file_size_bytes = ftell(fp);
+                if (file_size_bytes == -1) { /* Error */ }
+                
+                //subtract coefficients and whitespace here
+                DATA_LENGTH = file_size_bytes/2;
+            }
         }
+        
+        fclose(fp);
     }
     
 }
