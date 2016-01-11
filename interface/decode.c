@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 // #include <assert.h>
 // google test...
+//dont have array of chunks. (IMPORTANT)
+//---Have only 1 chunk at a time write it out, then do the next one.
 
 #include "gf.h"
 #include "mt64.h"
@@ -44,57 +48,176 @@ mt_rand16(void)
 //
 void
 parse_args(int argc,
-           char *argv[],
+           char **argv,
            struct arguments *facts
            )
 {
-    
+    /*
+    printf("hello\n");
+    int c;
+    while ((c = getopt(argc, argv, "fn:")) != -1){
+        switch (c) {
+            case 'f':
+                //
+                printf("f\n");
+                break;
+            case 'n':
+                //
+                printf("n\n");
+                break;
+            default:
+                abort();
+        }
+    }
+     */
+    facts->num_of_chunks = atoi(argv[2]);
+    char buffer[75];
+    strcpy(buffer, argv[1]);
+    facts->input_file_name = buffer;
 } // parse_args()...
 
 //
 //
 //
 void
-encodeFile(char **argv, // Parse everything in main or a separate function to parse and put tested inputs in a struct of "facts".
-           struct chunk *output //
-           )
-{
+encodeFile(struct arguments facts){
     uint16_t *input = NULL;
-    int DATA_LENGTH = 0;
-    int i, x, t;
+    long file_size_bytes = 0;
+    long DATA_LENGTH = 0; //16bit elements
+    
+    //buffer size set to 1MB
+    //using 16bit units, so half of what would be in byte
+    //long bufsize = 1000000;
+    long bufsize = 500000;
+    long count = 0;
+    int whitespace = 0;
+    
+    int i, x, t, j;
     
     //get file input
     FILE *fp;
-    fp = fopen(argv[1], "r");
+    fp = fopen(facts.input_file_name, "r");
     
     if(fp != NULL){
         if (fseek(fp, 0L, SEEK_END) == 0) {
-            /* Get the size of the file. */
-            long bufsize = ftell(fp);
-            if (bufsize == -1) { /* Error */ }
+            //Get the size of the file. Gets in single bytes
+            file_size_bytes = ftell(fp);
+            if (file_size_bytes == -1) { /* Error */ }
             
-            /* Allocate our buffer to that size. */
-            input = malloc(sizeof(uint16_t) * (bufsize));
+            if( file_size_bytes % 2 == 0){
+                DATA_LENGTH = file_size_bytes/2;
+            } else {
+                //not divisible by 2
+                //Which makes it a problem when outputting 16bits
+                //temporary solution. store somewhere to remember
+                DATA_LENGTH = (file_size_bytes + 1)/2;
+            }
             
-            /* Go back to the start of the file. */
-            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+            //Allocate our buffer to that size.
+            input = malloc(sizeof(uint16_t) * (DATA_LENGTH + (DATA_LENGTH%3)));
+            uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
             
-            /* Read the entire file into memory. */
-            size_t newLen = fread(input, sizeof(uint16_t), bufsize, fp);
-            
-            if (newLen == 0) {
-                fputs("Error reading file", stderr);
-            }/* else {
-                source[newLen++] = '\0'; //Just to be safe.
-            }*/
-            DATA_LENGTH = sizeof(input)/sizeof(uint16_t);
+            while(1){
+                if(count >= DATA_LENGTH){
+                    //end of file
+                    //set empty bytes to end
+                    whitespace = DATA_LENGTH%3;
+                    //add white space to end
+                    for(i = whitespace ; i > 0 ; i--){
+                        input[DATA_LENGTH-i] = 0;
+                    }
+                    break;
+                } else {
+                    //Go back to the start of the file.
+                    //if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+                    //Go to offset of file which is stored in count
+                    if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
+                    
+                    //Read the bufsize lenght of file into memory.
+                    //size_t newLen = fread(input, sizeof(uint16_t), bufsize, fp);
+                    size_t newLen = fread(buffer, sizeof(uint16_t), bufsize, fp);
+                    
+                    if (newLen == 0) {
+                        fputs("Error reading file", stderr);
+                    }/* else {
+                        source[newLen++] = '\0'; //Just to be safe.
+                    }*/
+                    
+                    //add buffer to input
+                    //count is in bytes so need to divide by 2 to get 16bit
+                    long offset = (count/2);
+                    memcpy(input+offset, buffer, sizeof(uint16_t));
+                    
+                    //increment count
+                    //fseek offset is in bytes. bufsize is in 16bit so * by 2
+                    count = count + (bufsize*2);
+                }
+            }
         }
     }
     
     fclose(fp);
     
+    printf("Done reading\n");
+    
+    //set up chunk memoryto be used for each chunk
+    struct chunk out;
+    long chunk_length = (DATA_LENGTH + whitespace)/3;
+    if ((out.output = malloc( chunk_length * sizeof(out.output))) == NULL) { // 16bit
+        perror("malloc");
+        exit(1);
+    }
+    
+    //for loop:
+    //--makes coefficients
+    //--encodes
+    //--writes out
+    for(j = 0 ; j < facts.num_of_chunks ; j++){
+        //make coefficients
+        for(x = 0; x < 3; x++) {
+            //make sure coefficients aren't 0
+            while(1) {
+                out.coef[x] = mt_rand16();
+                if(out.coef[x] != 0)
+                    break;
+            }
+        }
+        
+        out.numEmpty = whitespace;
+        
+        for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
+            out.output[t] = GF16mul(out.coef[0], input[i]) ^ GF16mul(out.coef[1], input[i+1]) ^ GF16mul(out.coef[2], input[i+2]);
+        }
+        
+        
+        
+        char namebuf[100];
+        sprintf(namebuf, "%s-%d", facts.input_file_name, j);
+        
+        fp = fopen(namebuf , "a" ); //a is for appending, file need not exist
+        fwrite(out.coef, 2, 3, fp);
+        
+        int *p = &whitespace;
+        fwrite(p, sizeof(int), 1, fp);
+        
+        //write out output array
+        /*
+        while(1){
+            
+        }
+         */
+        
+        fclose(fp);
+        
+        
+    }
+    
+    printf("Done encoding\n");
+    
+    
+    /*
     //make coefficients
-    for(x = 0 ; x < atoi(argv[2]) ; x++){
+    for(x = 0 ; x < facts.num_of_chunks ; x++){
         struct chunk out;
         output[x] = out;
         
@@ -105,106 +228,66 @@ encodeFile(char **argv, // Parse everything in main or a separate function to pa
     }
     //encode section
     for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
-        for(x = 0 ; x < atoi(argv[2]) ; x++){
+        for(x = 0 ; x < facts.num_of_chunks ; x++){
             output[x].output[t] = GF16mul(output[x].coef[0], input[i]) ^ GF16mul(output[x].coef[1], input[i+1]) ^ GF16mul(output[x].coef[2], input[i+2]);
         }
-        /*
-        output[0].output[t] = GF16mul(output[0].coef[0], input[i]) ^ GF16mul(output[0].coef[1], input[i+1]) ^ GF16mul(output[0].coef[2], input[i+2]);
-        output[1].output[t] = GF16mul(output[1].coef[0], input[i]) ^ GF16mul(output[1].coef[1], input[i+1]) ^ GF16mul(output[1].coef[2], input[i+2]);
-        output[2].output[t] = GF16mul(output[2].coef[0], input[i]) ^ GF16mul(output[2].coef[1], input[i+1]) ^ GF16mul(output[2].coef[2], input[i+2]);
-        */
+        //output[0].output[t] = GF16mul(output[0].coef[0], input[i]) ^ GF16mul(output[0].coef[1], input[i+1]) ^ GF16mul(output[0].coef[2], input[i+2]);
+        //output[1].output[t] = GF16mul(output[1].coef[0], input[i]) ^ GF16mul(output[1].coef[1], input[i+1]) ^ GF16mul(output[1].coef[2], input[i+2]);
+        //output[2].output[t] = GF16mul(output[2].coef[0], input[i]) ^ GF16mul(output[2].coef[1], input[i+1]) ^ GF16mul(output[2].coef[2], input[i+2]);
     }
+*/
 }
 
 //
 // Use getopts()
 //
 int main(int argc, char **argv){
+    //struct that holds the passed arguments
+    struct arguments facts;
     //input format
-    //no input for random input
-    //1 argument that is a file and number of chunks to create
-    //3 arguments that are the chunks to use to create a file
-    //check inout
-    int state;
-    if(argc == 1){
-        //0 argument
-        //random input
-        state = 0;
-    } else if(argc == 3){
+    //2 argument
+    //--file to read
+    //--number of chunks to create
+    //check input
+    if(argc == 3){
         //2 arguments
-        //file input
-        //number of chunks to make
-        state = 1;
-    } else if(argc == 4){
-        //3 arguments
-        //3 chunks to use in creating file
-        state = 2;
+        parse_args(argc, argv, &facts);
     } else {
         //too many arguments
         printf("Invalid input. Valid arguments:\n");
-        printf("No arguments for random input.\nFilename and number of chunks to make.\nOr three files to reassemble\n");
+        printf("Filename and number of chunks to make.\n");
         return 0;
     }
     
     // Initialize GF
     GF16init();
     
-    //set up of variables
+    //gets file and encodes
+    encodeFile(facts);
+    
+    printf("Done\n");
+    
+    return 0;
+    
     //intput
-    uint16_t *input;
+    //uint16_t *input;
     
+    /*
     //output chunks
-    struct chunk output[3];
-    struct chunk out1;
-    struct chunk out2;
-    struct chunk out3;
-    
-    output[0] = out1;
-    output[1] = out2;
-    output[2] = out3;
-
-    //loop variables
-    int i, j, t;
-    
-    //data length variable
-    int DATA_LENGTH;
-
-    // Allocate size for input and output
-    //check based on state
-    if( state == 0 ){
-        //No file. So random file
-        DATA_LENGTH = SPACE / sizeof(uint16_t);
-        //input allocation
-        if ((input = malloc(DATA_LENGTH * sizeof *input)) == NULL) { // 16bit
-            perror("malloc");
-            exit(1);
-        }
-        //fill input with random numbers
-        for (i = 0; i < DATA_LENGTH ; i++){
-            input[i] = mt_rand16();
-        }
-        //output allocation
-        if ((output[0].output = malloc(DATA_LENGTH * sizeof *output[0].output)) == NULL) { // 16bit
-            perror("malloc");
-            exit(1);
-        }
-        if ((output[1].output = malloc(DATA_LENGTH * sizeof *output[1].output)) == NULL) { // 16bit
-            perror("malloc");
-            exit(1);
-        }
-        if ((output[2].output = malloc(DATA_LENGTH * sizeof *output[2].output)) == NULL) { // 16bit
-            perror("malloc");
-            exit(1);
-        }
-    } else if(state == 1){
-        //file input
-        //file io operations here
-        //...
-        encodeFile(argv, output);
-    } else if(state == 2){
-        //3 files input for reassembly
+    struct chunk output[facts.num_of_chunks];
+    int i;
+    for(i = 0 ; i < facts.num_of_chunks ; i++){
+        struct chunk out;
+        out.numEmpty = 0;
+        out.output = NULL;
+        output[i] = out;
     }
+    */
+
     
+    
+    
+    /*
     //get coefficients (new)
     for (i = 0; i < 3; i++) {
         for(j = 0; j < 3; j++) {
@@ -230,8 +313,8 @@ int main(int argc, char **argv){
         output[1].output[t] = GF16mul(output[1].coef[0], input[i]) ^ GF16mul(output[1].coef[1], input[i+1]) ^ GF16mul(output[1].coef[2], input[i+2]);
         output[2].output[t] = GF16mul(output[2].coef[0], input[i]) ^ GF16mul(output[2].coef[1], input[i+1]) ^ GF16mul(output[2].coef[2], input[i+2]);
     }
-    
-    
+    */
+    /*
     printf("Decoding\n");
     
     //variables
@@ -296,20 +379,24 @@ int main(int argc, char **argv){
             break;
         }
     }
+    */
     
-    printf("Done\n");
+    //printf("Done\n");
     
-    
+    /*
     free(input);
     free(output[0].output);
     free(output[1].output);
     free(output[2].output);
+    */
+    /*
     free(final);
     free(x1);
     free(x2);
     free(x3);
+    */
     
-    return 0;
+    //return 0;
 }
 
 
