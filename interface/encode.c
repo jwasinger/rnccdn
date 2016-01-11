@@ -94,6 +94,8 @@ encodeFile(struct arguments facts){
     
     int i, x, t, j;
     
+    printf("Starting read\n");
+    
     //get file input
     FILE *fp;
     fp = fopen(facts.input_file_name, "r");
@@ -159,6 +161,7 @@ encodeFile(struct arguments facts){
     fclose(fp);
     
     printf("Done reading\n");
+    printf("Starting encode and write\n");
     
     //set up chunk memoryto be used for each chunk
     struct chunk out;
@@ -201,11 +204,10 @@ encodeFile(struct arguments facts){
         fwrite(p, sizeof(int), 1, fp);
         
         //write out output array
-        /*
-        while(1){
-            
-        }
-         */
+        //while(1){
+            fwrite(out.output, 2, DATA_LENGTH/3, fp);
+        //}
+        
         
         fclose(fp);
         
