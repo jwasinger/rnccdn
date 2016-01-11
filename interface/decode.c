@@ -29,8 +29,9 @@ struct arguments {
 struct chunk {
     //uint16_t a1, a2, a3;
     uint16_t coef[3];
-    uint16_t *output;
     int numEmpty; //number of 16bit 0s at end of final file
+    uint16_t *output;
+    
 };
 
 //
@@ -96,17 +97,19 @@ parse_args(int argc,
 void
 decodeFile(struct arguments facts){
     long file_size_bytes = 0;
+    long CHUNK_LENGTH = 0;
     long DATA_LENGTH = 0; //16bit elements
     
     //buffer size set to 1MB
     //using 16bit units, so half of what would be in byte
     //long bufsize = 1000000;
     long bufsize = 500000;
-    long count = 0;
+    //start of file has 3 16bit numbers and an int for whitespace
+    long count = 6 + sizeof(int);
     //int whitespace = 0;
     
     struct chunk output[3];
-    int i;
+    int i, t;
     
     //set up 3 chunks
     for(i = 0 ; i < 3 ; i++){
@@ -116,10 +119,13 @@ decodeFile(struct arguments facts){
         output[i] = out;
     }
     
+    printf("Starting read\n");
     
     for(i = 0 ; i < 3 ; i++){
         FILE *fp;
-        fp = fopen(facts.chunks[0], "r");
+        fp = fopen(facts.chunks[i], "r");
+        
+        //printf("chunk %s\n", facts.chunks[i]);
         
         if(fp != NULL){
             if (fseek(fp, 0L, SEEK_END) == 0) {
@@ -128,12 +134,146 @@ decodeFile(struct arguments facts){
                 if (file_size_bytes == -1) { /* Error */ }
                 
                 //subtract coefficients and whitespace here
-                DATA_LENGTH = file_size_bytes/2;
+                CHUNK_LENGTH = (file_size_bytes - (sizeof(uint16_t)*3) - sizeof(int))/2;
+                DATA_LENGTH = CHUNK_LENGTH*3;
+                
+                //go to beginning of file
+                if (fseek(fp, 0, SEEK_SET) != 0) { /* Error */ }
+                
+                //printf("before coef\n");
+                
+                //getting coefficients
+                size_t newLen = fread(output[i].coef, sizeof(uint16_t), 3, fp);
+                
+                if (newLen == 0) {
+                    fputs("Error reading file", stderr);
+                }
+                
+                //printf("after coef\n");
+                
+                //getting whitespace count
+                int *p = malloc(sizeof(int));
+                newLen = fread(p, sizeof(int), 1, fp);
+                output[i].numEmpty = *p;
+                
+                if (newLen == 0) {
+                    fputs("Error reading file", stderr);
+                }
+                
+                /*
+                printf("coef %d %d %d and whitespace %d\n",
+                       output[i].coef[0],
+                       output[i].coef[1],
+                       output[i].coef[2],
+                       output[i].numEmpty);
+                 */
+                
+                output[i].output = malloc(sizeof(uint16_t) * CHUNK_LENGTH);
+                uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
+                
+                printf("starting array\n");
+                
+                while(1){
+                    if(count >= CHUNK_LENGTH){
+                        //Done reading file
+                        break;
+                    } else {
+                        //Go back to the start of the file.
+                        //if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+                        //Go to offset of file which is stored in count
+                        if (fseek(fp, count, SEEK_SET) != 0) { /* Error */ }
+                        
+                        //Read the bufsize lenght of file into memory.
+                        //size_t newLen = fread(input, sizeof(uint16_t), bufsize, fp);
+                        size_t newLen = fread(buffer, sizeof(uint16_t), bufsize, fp);
+                        
+                        if (newLen == 0) {
+                            fputs("Error reading file", stderr);
+                        }/* else {
+                          source[newLen++] = '\0'; //Just to be safe.
+                          }*/
+                        
+                        //add buffer to input
+                        //count is in bytes so need to divide by 2 to get 16bit
+                        long offset = (count/2);
+                        memcpy(output[i].output+offset, buffer, sizeof(uint16_t));
+                        
+                        //increment count
+                        //fseek offset is in bytes. bufsize is in 16bit so * by 2
+                        count = count + (bufsize*2);
+                    }
+                    
+                }
             }
         }
         
         fclose(fp);
     }
+    
+    printf("Done reading chunks\n");
+    
+    printf("Starting decode\n");
+    
+    //variables
+    uint16_t *final;
+    
+    //allocate space for final file
+    if ((final = malloc(sizeof(uint16_t) * DATA_LENGTH)) == NULL) { // 16bit
+        perror("malloc");
+        exit(1);
+    }
+    
+    //set up c variables
+    uint16_t c0;
+    uint16_t c1;
+    uint16_t c2;
+    uint16_t c3;
+    uint16_t c4;
+    
+    //do math for c variables
+    c0 = GF16mul(output[1].coef[0], output[0].coef[1]) ^ GF16mul(output[0].coef[0], output[1].coef[1]);
+    c1 = GF16mul(output[1].coef[0], output[0].coef[2]) ^ GF16mul(output[0].coef[0], output[1].coef[2]);
+    c2 = GF16mul(output[2].coef[0], output[0].coef[1]) ^ GF16mul(output[0].coef[0], output[2].coef[1]);
+    c3 = GF16mul(output[2].coef[0], output[0].coef[2]) ^ GF16mul(output[0].coef[0], output[2].coef[2]);
+    c4 = GF16mul(c1, c2) ^ GF16mul(c0, c3);
+    
+    uint16_t *t0 = malloc(DATA_LENGTH/3 * sizeof *t0);
+    uint16_t *t1 = malloc(DATA_LENGTH/3 * sizeof *t1);
+    
+    for(i = 0 ; i < DATA_LENGTH/3 ; i++){
+        t0[i] = GF16mul(output[1].coef[0], output[0].output[i]) ^ GF16mul(output[0].coef[0], output[1].output[i]);
+        t1[i] = GF16mul(output[2].coef[0], output[0].output[i]) ^ GF16mul(output[0].coef[0], output[2].output[i]);
+    }
+    
+    uint16_t *x1 = malloc(DATA_LENGTH/3 * sizeof *x1);
+    uint16_t *x2 = malloc(DATA_LENGTH/3 * sizeof *x2);
+    uint16_t *x3 = malloc(DATA_LENGTH/3 * sizeof *x3);
+    
+    for(i = 0 ; i < DATA_LENGTH/3 ; i++){
+        x2[i] = GF16div((GF16mul(c2, t0[i]) ^ GF16mul(c0, t1[i])),c4);
+        x1[i] = GF16div((t0[i] ^ GF16mul(c1, x2[i])),c0);
+        x3[i] = GF16div((output[0].output[i] ^ GF16mul(output[0].coef[1], x1[i]) ^ GF16mul(output[0].coef[2], x2[i])),output[0].coef[0]);
+    }
+    
+    for(i = 0, t = 0 ; i < DATA_LENGTH ; i +=3, t++){
+        //final[i] = x1[t];
+        //final[i+1] = x2[t];
+        //final[i+2] = x3[t];
+        final[i] = x3[t];
+        final[i+1] = x1[t];
+        final[i+2] = x2[t];
+    }
+    
+    printf("Done decoding\n");
+    
+    printf("Starting write\n");
+    
+    FILE *finalFile;
+    finalFile = fopen("final_file.jpg" , "w" ); //change file name later
+    
+    //write out final array
+    fwrite(final, 2, (DATA_LENGTH)-output[0].numEmpty, finalFile);
+    
     
 }
 
@@ -312,8 +452,8 @@ int main(int argc, char **argv){
     //--file to read
     //--number of chunks to create
     //check input
-    if(argc == 3){
-        //2 arguments
+    if(argc == 4){
+        //3 arguments
         parse_args(argc, argv, &facts);
     } else {
         //too many arguments

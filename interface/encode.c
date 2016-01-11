@@ -211,6 +211,13 @@ encodeFile(struct arguments facts){
         
         fclose(fp);
         
+        /*
+        printf("coef %d %d %d and whitespace %d\n",
+               out.coef[0],
+               out.coef[1],
+               out.coef[2],
+               out.numEmpty);
+        */
         
     }
     
