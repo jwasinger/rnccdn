@@ -458,7 +458,7 @@ int main(int argc, char **argv){
     } else {
         //too many arguments
         printf("Invalid input. Valid arguments:\n");
-        printf("Filename and number of chunks to make.\n");
+        printf("Chunk names to decode.\n");
         return 0;
     }
     
