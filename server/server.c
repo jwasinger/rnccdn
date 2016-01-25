@@ -38,10 +38,9 @@ int main(int argc, char **argv) {
   echoserver.sin_addr.s_addr = inet_addr(local_host_ip);
   echoserver.sin_port = htons(port);
 
-  if(result = connect(sock, (struct sockaddr *)&echoserver, sizeof(echoserver)) < 0) {
-    Die("failed to create listening socket");
+  if(result = bind(server_sock_fd, (struct sockaddr *)&echoserver, sizeof(echoserver)) < 0) {
+    Die("failed to bind listening socket");
   }
-
 
   //listen for new connections
   while(1) {
