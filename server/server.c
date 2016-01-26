@@ -59,13 +59,26 @@ int main(int argc, char **argv) {
   }
 
   unsigned int clientlen = sizeof(client_sock);
+  int received = 0;
+  char recv_buf[BUF_SIZE];
 
   //listen for new connections
   while(1) {
     if((client_sock_fd = accept(server_sock_fd, (struct sockaddr *) &client_sock, &clientlen)) < 0) {
-      Die("failed to accept client");
     } else {
-      Die("success");
+      while(received < BUF_SIZE) {
+        if((result = recv(client_sock_fd, recv_buf, BUF_SIZE-1,0)) < 0) {
+          Die("failed to receive bytes from client");
+        }
+
+        received += result;
+        recv_buf[result] = '\n';
+
+        printf(recv_buf);
+        close(client_sock_fd);
+        close(server_sock_fd);
+        return 0;
+      }
     }
   }
 }
