@@ -48,10 +48,10 @@ mt_rand16(void)
 //
 // getopts...
 //
-void
+//void
+struct arguments
 parse_args(int argc,
-           char **argv,
-           struct arguments *facts
+           char **argv
            )
 {
     /*
@@ -78,17 +78,21 @@ parse_args(int argc,
     strcpy(buffer, argv[1]);
     facts->input_file_name = buffer;
      */
-    char buffer1[75];
+    struct arguments facts;
+
+    char * buffer1 = malloc(75 * sizeof(char*));
     strcpy(buffer1, argv[1]);
-    facts->chunks[0] = buffer1;
+    facts.chunks[0] = buffer1;
     
-    char buffer2[75];
+    char * buffer2 = malloc(75 * sizeof(char*));
     strcpy(buffer2, argv[2]);
-    facts->chunks[1] = buffer2;
+    facts.chunks[1] = buffer2;
     
-    char buffer3[75];
+    char * buffer3 = malloc(75 * sizeof(char*));
     strcpy(buffer3, argv[3]);
-    facts->chunks[2] = buffer3;
+    facts.chunks[2] = buffer3;
+
+    return facts;
 } // parse_args()...
 
 //
@@ -454,7 +458,7 @@ int main(int argc, char **argv){
     //check input
     if(argc == 4){
         //3 arguments
-        parse_args(argc, argv, &facts);
+        facts = parse_args(argc, argv);
     } else {
         //too many arguments
         printf("Invalid input. Valid arguments:\n");

@@ -46,10 +46,10 @@ mt_rand16(void)
 //
 // getopts...
 //
-void
+//void
+struct arguments
 parse_args(int argc,
-           char **argv,
-           struct arguments *facts
+           char **argv
            )
 {
     /*
@@ -70,10 +70,23 @@ parse_args(int argc,
         }
     }
      */
-    facts->num_of_chunks = atoi(argv[2]);
-    char buffer[75];
+    
+	//int i;
+    //for(i = 0 ; i < argc ; i++){
+    //	printf("%s\n", argv[i]);
+    //}
+    
+    struct arguments facts;
+
+    facts.num_of_chunks = atoi(argv[2]);
+    //char buffer[75];
+    char * buffer = malloc(75 * sizeof(char*));
     strcpy(buffer, argv[1]);
-    facts->input_file_name = buffer;
+    facts.input_file_name = buffer;
+
+    //printf("Hello|%s|\n", facts.input_file_name);
+
+    return facts;
 } // parse_args()...
 
 //
@@ -95,10 +108,16 @@ encodeFile(struct arguments facts){
     int i, x, t, j;
     
     printf("Starting read\n");
+
+    //printf("Hello|%s|\n", facts.input_file_name);
     
     //get file input
     FILE *fp;
     fp = fopen(facts.input_file_name, "r");
+
+    //if(fp == NULL){
+    //	printf("Hello|%s|\n", facts.input_file_name);
+    //}
     
     if(fp != NULL){
         if (fseek(fp, 0L, SEEK_END) == 0) {
@@ -260,14 +279,14 @@ int main(int argc, char **argv){
     //check input
     if(argc == 3){
         //2 arguments
-        parse_args(argc, argv, &facts);
+        facts = parse_args(argc, argv);
     } else {
         //too many arguments
         printf("Invalid input. Valid arguments:\n");
         printf("Filename and number of chunks to make.\n");
         return 0;
     }
-    
+
     // Initialize GF
     GF16init();
     
