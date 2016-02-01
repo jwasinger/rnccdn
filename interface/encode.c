@@ -28,8 +28,10 @@ struct arguments {
 struct chunk {
     //uint16_t a1, a2, a3;
     uint16_t coef[3];
-    uint16_t *output;
     int numEmpty; //number of 16bit 0s at end of final file
+    int oddBytes; //non-zero if odd number of bytes in original file
+    uint16_t *output;
+    
 };
 
 //
@@ -104,6 +106,7 @@ encodeFile(struct arguments facts){
     long bufsize = 500000;
     long count = 0;
     int whitespace = 0;
+    int oddBytes = 0;
     
     int i, x, t, j;
     
@@ -120,7 +123,7 @@ encodeFile(struct arguments facts){
     //}
     
     if(fp != NULL){
-        if (fseek(fp, 0L, SEEK_END) == 0) {
+        if (fseek(fp, 0, SEEK_END) == 0) {
             //Get the size of the file. Gets in single bytes
             file_size_bytes = ftell(fp);
             if (file_size_bytes == -1) { /* Error */ }
@@ -132,18 +135,23 @@ encodeFile(struct arguments facts){
                 //Which makes it a problem when outputting 16bits
                 //temporary solution. store somewhere to remember
                 DATA_LENGTH = (file_size_bytes + 1)/2;
+                oddBytes = 1;
+            }
+
+            if(DATA_LENGTH%3 == 0){
+            	whitespace = 0;
+            } else {
+            	whitespace = 3 - (DATA_LENGTH%3);
             }
             
             //Allocate our buffer to that size.
-            input = malloc(sizeof(uint16_t) * (DATA_LENGTH + (DATA_LENGTH%3)));
+            input = malloc(sizeof(uint16_t) * (DATA_LENGTH + whitespace));
             uint16_t *buffer = malloc(sizeof(uint16_t) * (bufsize));
             
             while(1){
                 if(count >= DATA_LENGTH){
                     //end of file
                     //set empty bytes to end
-                    whitespace = DATA_LENGTH%3;
-                    //add white space to end
                     for(i = whitespace ; i > 0 ; i--){
                         input[DATA_LENGTH-i] = 0;
                     }
@@ -221,49 +229,32 @@ encodeFile(struct arguments facts){
         
         int *p = &whitespace;
         fwrite(p, sizeof(int), 1, fp);
+
+        int *b = &oddBytes;
+        fwrite(b, sizeof(int), 1, fp);
         
         //write out output array
         //while(1){
-            fwrite(out.output, 2, DATA_LENGTH/3, fp);
+        fwrite(out.output, 2, (DATA_LENGTH+whitespace)/3, fp);
         //}
         
         
         fclose(fp);
+
         
-        /*
-        printf("coef %d %d %d and whitespace %d\n",
-               out.coef[0],
-               out.coef[1],
-               out.coef[2],
-               out.numEmpty);
-        */
+        printf("coef %d %d %d and whitespace %d and odd bytes %d\n",
+                       out.coef[0],
+                       out.coef[1],
+                       out.coef[2],
+                       *p,
+                       *b);
+
+        //printf("%d\n", sizeof(int));
+                       
         
     }
     
     printf("Done encoding\n");
-    
-    
-    /*
-    //make coefficients
-    for(x = 0 ; x < facts.num_of_chunks ; x++){
-        struct chunk out;
-        output[x] = out;
-        
-        if ((output[x].output = malloc(DATA_LENGTH * sizeof *output[x].output)) == NULL) { // 16bit
-            perror("malloc");
-            exit(1);
-        }
-    }
-    //encode section
-    for(i = 0, t = 0; i < DATA_LENGTH ; t++, i += 3){
-        for(x = 0 ; x < facts.num_of_chunks ; x++){
-            output[x].output[t] = GF16mul(output[x].coef[0], input[i]) ^ GF16mul(output[x].coef[1], input[i+1]) ^ GF16mul(output[x].coef[2], input[i+2]);
-        }
-        //output[0].output[t] = GF16mul(output[0].coef[0], input[i]) ^ GF16mul(output[0].coef[1], input[i+1]) ^ GF16mul(output[0].coef[2], input[i+2]);
-        //output[1].output[t] = GF16mul(output[1].coef[0], input[i]) ^ GF16mul(output[1].coef[1], input[i+1]) ^ GF16mul(output[1].coef[2], input[i+2]);
-        //output[2].output[t] = GF16mul(output[2].coef[0], input[i]) ^ GF16mul(output[2].coef[1], input[i+1]) ^ GF16mul(output[2].coef[2], input[i+2]);
-    }
-*/
 }
 
 //
