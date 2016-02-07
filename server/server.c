@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <pthread.h>
+
 #define BUF_SIZE 256
 #define MAX_PENDING 256
 
@@ -29,6 +31,10 @@ void Die(char *str) {
   exit(-1);
 }
 
+int handleClient() {
+
+}
+
 int main(int argc, char **argv) {
   int result;
   char buf[BUF_SIZE];
@@ -37,6 +43,7 @@ int main(int argc, char **argv) {
   int server_sock_fd = -1;
 
   //server listens on port 3000
+  //TODO put these into a config file
   char *local_host_ip = "127.0.0.1";
   uint32_t port = 3000;
 
@@ -75,6 +82,9 @@ int main(int argc, char **argv) {
         recv_buf[result] = '\n';
 
         printf(recv_buf);
+
+        //create new thread to handle client cxn
+
         close(client_sock_fd);
         close(server_sock_fd);
         return 0;

@@ -5,7 +5,7 @@ SERVER		= server.c
 SRCS		= $(SERVER)
 OBJS		= $(SRCS:.c=.o)
 
-LIBS		=
+LIBS		= lpthread
 LIBPATH		=
 INCPATH		=
 CFLAGS		= -Wall -O0 -g
