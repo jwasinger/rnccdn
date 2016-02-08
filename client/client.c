@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
       if(connect(sock,(struct sockaddr *) &echoserver, sizeof(echoserver)) < 0){
             Die("Failed to connect with server");
       } else {
-        printf("connected to server");
+        printf("Connected to server");
       }
 
       /* Send a word to the server */
