@@ -36,9 +36,35 @@ int main(int argc, char **argv) {
   int client_sock_fd = -1;
   int server_sock_fd = -1;
 
+  unsigned int clientlen = sizeof(client_sock);
+  int received = 0;
+  char recv_buf[BUF_SIZE];
+  int sent_total_len = 0;
+  int sent_cur_len = 0;
+
+  FILE *fp = NULL;
+  char *test_file_buf = NULL;
+  long test_file_size = 0;
+
   //server listens on port 3000
   char *local_host_ip = "127.0.0.1";
   uint32_t port = 3000;
+
+  //open the test file
+  if((fp = fopen("test_file.html", "r")) != 0) {
+    fseek(fp, 0, SEEK_END);
+    test_file_size = ftell(fp) + 1;
+    test_file_buf = malloc(test_file_size);
+    fseek(fp, 0, SEEK_SET);
+
+    fread(test_file_buf, test_file_size, 1, fp);
+    fclose(fp);
+  }
+  else {
+    Die("failed to open test file");
+  }
+
+  printf(test_file_buf);
 
   //create a socket to listen for connections
   memset(&server_sock, 0, sizeof(client_sock));
@@ -58,9 +84,6 @@ int main(int argc, char **argv) {
     Die("Failed to listen on server socket");
   }
 
-  unsigned int clientlen = sizeof(client_sock);
-  int received = 0;
-  char recv_buf[BUF_SIZE];
 
   //listen for new connections
   while(1) {
@@ -72,9 +95,32 @@ int main(int argc, char **argv) {
         }
 
         received += result;
-        recv_buf[result] = '\n';
+        recv_buf[result] = '\0';
+        if(strcmp(recv_buf, "fetch") == 0) {
+          
+        } else {
+          printf("wrong input from client");
+        }
 
         printf(recv_buf);
+
+        //send back file data to the client
+        while(TRUE) {
+          if((sent_cur_len = send(client_sock_fd, test_file_buf, test_file_size - sent_total_len, 0)) > 0) {
+            sent_total_len += sent_cur_len;
+            if(sent_total_len == test_file_size) {
+              printf("file transmitted");
+              break;
+            }
+          } else if(sent_cur_len == 0) {
+            Die("zero bytes transmitted to client");
+          }
+          } else {
+            printf("file transmitted completed");
+            break;
+          }
+        }
+
         close(client_sock_fd);
         close(server_sock_fd);
         return 0;
