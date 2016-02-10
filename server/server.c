@@ -64,8 +64,6 @@ int main(int argc, char **argv) {
     Die("failed to open test file");
   }
 
-  printf(test_file_buf);
-
   //create a socket to listen for connections
   memset(&server_sock, 0, sizeof(client_sock));
   server_sock.sin_family = AF_INET;
@@ -105,7 +103,7 @@ int main(int argc, char **argv) {
         printf(recv_buf);
 
         //send back file data to the client
-        while(TRUE) {
+        while(1) {
           if((sent_cur_len = send(client_sock_fd, test_file_buf, test_file_size - sent_total_len, 0)) > 0) {
             sent_total_len += sent_cur_len;
             if(sent_total_len == test_file_size) {
@@ -114,7 +112,6 @@ int main(int argc, char **argv) {
             }
           } else if(sent_cur_len == 0) {
             Die("zero bytes transmitted to client");
-          }
           } else {
             printf("file transmitted completed");
             break;
