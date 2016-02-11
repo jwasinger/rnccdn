@@ -70,6 +70,9 @@ int main(int argc, char **argv) {
   server_sock.sin_addr.s_addr = inet_addr(local_host_ip);
   server_sock.sin_port = htons(port);
 
+  printf(">> Listening for connections on port 3000...");
+  fflush(stdout);
+
   if((server_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     Die("failed to create socket fd");
   }
@@ -78,10 +81,10 @@ int main(int argc, char **argv) {
     Die("failed to bind server socket");
   }
 
+
   if((result = listen(server_sock_fd, MAX_PENDING)) < 0) {
     Die("Failed to listen on server socket");
   }
-
 
   //listen for new connections
   while(1) {
